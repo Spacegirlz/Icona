@@ -1,5 +1,4 @@
 import React from 'react';
-import { CreditBalance } from './CreditBalance';
 
 interface HeaderProps {
   onReset: () => void;
