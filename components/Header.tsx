@@ -14,12 +14,34 @@ interface HeaderProps {
  * bold, gradient-based text logo.
  */
 export const Header: React.FC<HeaderProps> = ({ onReset, showReset, credits = 0, onCreditsUpdate }) => {
+  // Wrap CreditBalance in error boundary to prevent silent failures
+  let creditComponent;
+  try {
+    creditComponent = <CreditBalance credits={credits} onCreditsUpdate={onCreditsUpdate} />;
+  } catch (error) {
+    console.error('Error rendering CreditBalance:', error);
+    creditComponent = (
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg">
+          <span className="text-sm text-gray-400">Credits:</span>
+          <span className="text-lg font-bold text-purple-400">{credits}</span>
+        </div>
+        <button
+          onClick={() => alert('Buy Credits feature loading...')}
+          className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg"
+        >
+          Buy Credits
+        </button>
+      </div>
+    );
+  }
+
   return (
     <header className="sticky top-0 z-50 w-full bg-gray-900/70 backdrop-blur-sm border-b border-gray-700/50 shadow-lg">
       <nav className="container mx-auto grid grid-cols-3 items-center p-6 md:px-12">
         {/* Left side: Credit Balance */}
         <div className="flex justify-start">
-          <CreditBalance credits={credits} onCreditsUpdate={onCreditsUpdate} />
+          {creditComponent}
         </div>
 
         {/* Centered Logo / App Title */}
