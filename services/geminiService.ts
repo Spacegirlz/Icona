@@ -1,4 +1,5 @@
 
+
 import { GoogleGenAI, Modality, Type } from "@google/genai";
 
 const API_KEY = process.env.API_KEY;
@@ -11,6 +12,10 @@ const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 export const editImageWithGemini = async (base64ImageData: string, mimeType: string, prompt: string): Promise<{ base64: string; mimeType: string; }> => {
   try {
+    // FIX: Ensure the prompt is never empty to prevent an API error.
+    // The API throws an "INVALID_ARGUMENT" error if a text part is sent without content.
+    const effectivePrompt = (prompt && prompt.trim() !== '') ? prompt : 'A beautiful, high-quality photograph of the subject.';
+
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash-image',
       contents: {
@@ -22,7 +27,7 @@ export const editImageWithGemini = async (base64ImageData: string, mimeType: str
             },
           },
           {
-            text: prompt,
+            text: effectivePrompt,
           },
         ],
       },
