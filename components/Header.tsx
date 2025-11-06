@@ -1,4 +1,5 @@
 import React from 'react';
+import { CreditBalance } from './CreditBalance';
 
 interface HeaderProps {
   onReset: () => void;
@@ -18,21 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ onReset, showReset, credits = 0,
       <nav className="container mx-auto grid grid-cols-3 items-center p-6 md:px-12">
         {/* Left side: Credit Balance */}
         <div className="flex justify-start">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg">
-              <span className="text-sm text-gray-400">Credits:</span>
-              <span className="text-lg font-bold text-purple-400">{credits}</span>
-            </div>
-            <button
-              onClick={() => {
-                // Simple test - will replace with CreditBalance component once header is visible
-                alert('Buy Credits - Feature coming soon!');
-              }}
-              className="px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-pink-600 rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all duration-300"
-            >
-              Buy Credits
-            </button>
-          </div>
+          <CreditBalance credits={credits} onCreditsUpdate={onCreditsUpdate} />
         </div>
 
         {/* Centered Logo / App Title */}
