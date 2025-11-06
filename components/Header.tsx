@@ -1,8 +1,11 @@
 import React from 'react';
+import { CreditBalance } from './CreditBalance';
 
 interface HeaderProps {
   onReset: () => void;
   showReset: boolean;
+  credits?: number;
+  onCreditsUpdate?: () => void;
 }
 
 /**
@@ -10,12 +13,14 @@ interface HeaderProps {
  * Features a semi-transparent "glassmorphism" background and a
  * bold, gradient-based text logo.
  */
-export const Header: React.FC<HeaderProps> = ({ onReset, showReset }) => {
+export const Header: React.FC<HeaderProps> = ({ onReset, showReset, credits = 0, onCreditsUpdate }) => {
   return (
     <header className="sticky top-0 z-50 w-full bg-gray-900/70 backdrop-blur-sm border-b border-gray-700/50 shadow-lg">
       <nav className="container mx-auto grid grid-cols-3 items-center p-6 md:px-12">
-        {/* Left side spacer */}
-        <div className="flex justify-start"></div>
+        {/* Left side: Credit Balance */}
+        <div className="flex justify-start">
+          <CreditBalance credits={credits} onCreditsUpdate={onCreditsUpdate} />
+        </div>
 
         {/* Centered Logo / App Title */}
         <div className="text-center">

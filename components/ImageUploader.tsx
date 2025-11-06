@@ -1,5 +1,6 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { TransformationMode } from '../prompts';
+import { validateImageFile } from '../utils/imageUtils';
 
 interface ImageUploaderProps {
   onImageUpload: (file: File) => void;
@@ -22,12 +23,28 @@ const ChangePhotoIcon: React.FC = () => (
 
 export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, imageUrl, transformationMode }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      onImageUpload(file);
+    if (!file) return;
+
+    // Validate file
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      setValidationError(validation.error || 'Invalid file');
+      // Clear the input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      return;
     }
+
+    // Clear any previous errors
+    setValidationError(null);
+    
+    // Upload the file
+    onImageUpload(file);
   };
 
   const handleClick = (event: React.MouseEvent) => {
@@ -67,7 +84,12 @@ export const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageUpload, ima
         <div className="text-center p-4">
             <UploadIcon />
             <p className="text-xl font-semibold text-gray-400">Choose a photo to transform</p>
-            <p className="text-sm text-gray-500">Supports PNG, JPG, WEBP</p>
+            <p className="text-sm text-gray-500">Supports PNG, JPG, WEBP (max 10MB)</p>
+        </div>
+      )}
+      {validationError && (
+        <div className="absolute bottom-0 left-0 right-0 bg-red-600 text-white p-2 text-sm text-center">
+          {validationError}
         </div>
       )}
     </div>

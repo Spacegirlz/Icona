@@ -10,8 +10,30 @@ import { editImageWithGemini, getRefinementSuggestions, generateDetailedPromptFr
 import { fileToBase64 } from './utils/imageUtils';
 import { buildFinalPrompt, quickHitToOpts, TransformationMode, QUICK_HITS, buildCreativeMetaPrompt } from './prompts';
 import { LandingPage } from './components/LandingPage';
+import { sanitizeRefinementPrompt, sanitizeManualEraText, sanitizeAdditionalDetails } from './utils/promptSanitizer';
 
 export type CreationMode = 'choice' | 'build' | 'manual' | 'adventure-choice';
+
+// Simple credit storage (localStorage for now, can upgrade to Supabase later)
+const getCredits = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const stored = localStorage.getItem('icona_credits');
+  return stored ? parseInt(stored, 10) : 1; // Start with 1 free credit
+};
+
+const setCredits = (credits: number): void => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('icona_credits', credits.toString());
+};
+
+const useCredits = (amount: number): boolean => {
+  const current = getCredits();
+  if (current >= amount) {
+    setCredits(current - amount);
+    return true;
+  }
+  return false;
+};
 
 const App = () => {
   const [originalImageFile, setOriginalImageFile] = useState<File | null>(null);
@@ -26,6 +48,7 @@ const App = () => {
   const [refinementSuggestions, setRefinementSuggestions] = useState<string[]>([]);
   const [showQuickHitsPicker, setShowQuickHitsPicker] = useState(false);
   const [lastUsedPrompt, setLastUsedPrompt] = useState<string | null>(null);
+  const [credits, setCreditsState] = useState<number>(getCredits());
   
   // State for the prompt builder
   const [transformationMode, setTransformationMode] = useState<TransformationMode>('portrait');
@@ -55,6 +78,70 @@ const App = () => {
       setOnCooldown(false);
     }
   }, [onCooldown, cooldownTimer]);
+
+  // Cleanup blob URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (originalImageUrl && originalImageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(originalImageUrl);
+      }
+    };
+  }, [originalImageUrl]);
+
+  useEffect(() => {
+    return () => {
+      if (editedImageUrl && editedImageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(editedImageUrl);
+      }
+    };
+  }, [editedImageUrl]);
+
+  // Check for successful payment and add credits
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const sessionId = urlParams.get('session_id');
+    
+    if (success === 'true' && sessionId) {
+      // Verify payment with backend and add credits
+      const verifyPayment = async () => {
+        try {
+          const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+          const response = await fetch(`${API_BASE_URL}/verify-payment`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionId }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.credits > 0) {
+              // Add credits to localStorage
+              const current = getCredits();
+              setCredits(current + data.credits);
+              setCreditsState(current + data.credits);
+              // Show success message
+              alert(`Success! ${data.credits} credits added to your account.`);
+            }
+          }
+        } catch (error) {
+          console.error('Error verifying payment:', error);
+        }
+      };
+      
+      verifyPayment();
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+    
+    // Refresh credits from localStorage
+    setCreditsState(getCredits());
+  }, []);
+
+  // Refresh credits function
+  const refreshCredits = () => {
+    setCreditsState(getCredits());
+  };
 
   const handleImageUpload = (file: File) => {
     setOriginalImageFile(file);
@@ -161,6 +248,14 @@ const App = () => {
       return;
     }
     
+    // Check credits before generating
+    if (!useCredits(1)) {
+      setError('Not enough credits. Please buy more credits to continue.');
+      setCreditsState(getCredits()); // Update UI
+      return;
+    }
+    setCreditsState(getCredits()); // Update UI
+    
     setShowQuickHitsPicker(false);
     setIsLoading(true);
     setError(null);
@@ -210,6 +305,12 @@ const App = () => {
   }, [originalImageFile]);
 
   const handleSubmit = useCallback(async () => {
+    // Check credits before generating
+    if (!useCredits(1)) {
+      setError('Not enough credits. Please buy more credits to continue.');
+      return;
+    }
+    setCreditsState(getCredits()); // Update UI
     if (!originalImageFile) {
       setError('Please upload an image.');
       return;
@@ -219,6 +320,10 @@ const App = () => {
         setError('Please describe your vision in the manual era text field.');
         return;
     }
+    
+    // Sanitize user inputs before building prompt
+    const sanitizedManualEraText = manualEraText ? sanitizeManualEraText(manualEraText) : '';
+    const sanitizedAdditionalDetails = additionalDetails ? sanitizeAdditionalDetails(additionalDetails) : '';
     
     setIsLoading(true);
     setError(null);
@@ -231,9 +336,9 @@ const App = () => {
       archetypeId,
       eraId,
       settingId,
-      manualEraText,
+      manualEraText: sanitizedManualEraText,
       styleId,
-      additionalDetails,
+      additionalDetails: sanitizedAdditionalDetails,
       mode: transformationMode,
       professionalPresetId,
     };
@@ -270,10 +375,21 @@ const App = () => {
       setError('Cannot refine without a previous generation and a refinement instruction.');
       return;
     }
+    
+    // Check credits before refining
+    if (!useCredits(1)) {
+      setError('Not enough credits. Please buy more credits to continue.');
+      setCreditsState(getCredits()); // Update UI
+      return;
+    }
+    setCreditsState(getCredits()); // Update UI
+    
     setIsLoading(true);
     setError(null);
     
-    const refinementMetaPrompt = `Refine the previous image based on this instruction: '${refinementPrompt}'. The original prompt that created the image was: "${lastUsedPrompt}"`;
+    // Sanitize user input to prevent prompt injection
+    const sanitizedRefinement = sanitizeRefinementPrompt(refinementPrompt);
+    const refinementMetaPrompt = `Refine the previous image based on this instruction: '${sanitizedRefinement}'. The original prompt that created the image was: "${lastUsedPrompt}"`;
 
     try {
         const finalRefinementPrompt = await generateDetailedPromptFromTextModel(refinementMetaPrompt);
@@ -330,7 +446,12 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white font-sans">
-      <Header onReset={handleReset} showReset={!!originalImageUrl} />
+      <Header 
+        onReset={handleReset} 
+        showReset={!!originalImageUrl}
+        credits={credits}
+        onCreditsUpdate={refreshCredits}
+      />
 
       <main className="container mx-auto p-6 md:p-12">
         {!originalImageUrl ? (
