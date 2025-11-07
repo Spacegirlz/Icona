@@ -83,6 +83,12 @@ const App = () => {
 
   // Initialize auth and load credits
   useEffect(() => {
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      console.warn('Auth initialization timed out, setting loading to false');
+      setLoadingAuth(false);
+    }, 5000); // 5 second timeout
+
     const initAuth = async () => {
       try {
         // Check for OAuth callback in URL hash
@@ -90,30 +96,52 @@ const App = () => {
         const accessToken = hashParams.get('access_token');
         
         if (accessToken) {
-          // OAuth callback - get session explicitly
-          const { getSession } = await import('./services/authService');
-          const session = await getSession();
-          
-          if (session?.user) {
-            await handleAuthChange(session.user);
-            // Clean up URL hash
-            window.history.replaceState({}, '', window.location.pathname);
-            return;
+          // OAuth callback - get session explicitly with timeout
+          try {
+            const { getSession } = await import('./services/authService');
+            const session = await Promise.race([
+              getSession(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Session check timeout')), 3000)
+              )
+            ]) as any;
+            
+            if (session?.user) {
+              await handleAuthChange(session.user);
+              // Clean up URL hash
+              window.history.replaceState({}, '', window.location.pathname);
+              clearTimeout(timeoutId);
+              setLoadingAuth(false);
+              return;
+            }
+          } catch (err) {
+            console.warn('OAuth callback handling failed:', err);
           }
         }
         
-        // Normal auth check
-        const currentUser = await getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-          const profile = await getUserProfile(currentUser.id);
-          if (profile) {
-            setCreditsState(profile.credits || 0);
+        // Normal auth check with timeout
+        try {
+          const currentUser = await Promise.race([
+            getCurrentUser(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Auth check timeout')), 3000)
+            )
+          ]) as any;
+          
+          if (currentUser) {
+            setUser(currentUser);
+            const profile = await getUserProfile(currentUser.id);
+            if (profile) {
+              setCreditsState(profile.credits || 0);
+            }
           }
+        } catch (err) {
+          console.warn('Auth check failed or timed out:', err);
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
       } finally {
+        clearTimeout(timeoutId);
         setLoadingAuth(false);
       }
     };
