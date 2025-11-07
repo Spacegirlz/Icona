@@ -102,11 +102,12 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onSelectPackage, i
       
       {/* Modal Container */}
       <div 
-        className="fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-16 md:pt-24 overflow-y-auto pointer-events-none"
+        className="fixed inset-0 z-[9999] flex items-center justify-center p-4 overflow-y-auto pointer-events-none"
+        style={{ paddingTop: '80px', paddingBottom: '40px' }}
       >
         {/* Modal Content */}
         <div 
-          className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[calc(100vh-8rem)] overflow-y-auto my-4 pointer-events-auto"
+          className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[calc(100vh-120px)] overflow-y-auto pointer-events-auto"
           onClick={(e) => e.stopPropagation()}
         >
         {/* Header */}
