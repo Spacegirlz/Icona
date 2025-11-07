@@ -126,8 +126,15 @@ export default async function handler(
                   const amountPaid = session.amount_total || 0;
                   const amountFormatted = `$${(amountPaid / 100).toFixed(2)}`;
                   
+                  // Get the app URL - use production domain in production
+                  const baseUrl = process.env.VERCEL_ENV === 'production' 
+                    ? 'https://www.useicona.com'
+                    : process.env.VERCEL_URL 
+                    ? `https://${process.env.VERCEL_URL}`
+                    : 'https://www.useicona.com';
+                  
                   // Call email API endpoint
-                  const emailResponse = await fetch(`${process.env.VERCEL_URL || 'https://icona-eta.vercel.app'}/api/send-email`, {
+                  const emailResponse = await fetch(`${baseUrl}/api/send-email`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -139,12 +146,12 @@ export default async function handler(
                           <p>Hi there!</p>
                           <p>Your payment of <strong>${amountFormatted}</strong> was successful.</p>
                           <p><strong>${credits} credits</strong> have been added to your account.</p>
-                          <a href="https://icona-eta.vercel.app" style="display: inline-block; padding: 12px 24px; background: #9333ea; color: white; text-decoration: none; border-radius: 6px; margin-top: 20px;">
+                          <a href="${baseUrl}" style="display: inline-block; padding: 12px 24px; background: #9333ea; color: white; text-decoration: none; border-radius: 6px; margin-top: 20px;">
                             Use Your Credits
                           </a>
                         </div>
                       `,
-                      text: `Payment confirmed! ${credits} credits added to your account. Visit https://icona-eta.vercel.app to use them.`,
+                      text: `Payment confirmed! ${credits} credits added to your account. Visit ${baseUrl} to use them.`,
                     }),
                   });
                   

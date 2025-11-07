@@ -70,8 +70,8 @@ export default async function handler(
         },
       ],
       mode: 'payment',
-      success_url: `${request.headers.origin || 'https://icona-eta.vercel.app'}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${request.headers.origin || 'https://icona-eta.vercel.app'}/?canceled=true`,
+      success_url: `${request.headers.origin || (process.env.VERCEL_ENV === 'production' ? 'https://www.useicona.com' : 'https://www.useicona.com')}/?success=true&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${request.headers.origin || (process.env.VERCEL_ENV === 'production' ? 'https://www.useicona.com' : 'https://www.useicona.com')}/?canceled=true`,
       customer_email: userEmail || undefined,
       metadata: {
         packageId,
