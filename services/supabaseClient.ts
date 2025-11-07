@@ -4,15 +4,11 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-// Debug logging (only in development or if explicitly enabled)
-if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) {
+// Debug logging (only if explicitly enabled via VITE_DEBUG)
+if (import.meta.env.VITE_DEBUG === 'true') {
   console.log('🔍 Supabase Config Check:', {
     hasUrl: !!supabaseUrl,
-    urlLength: supabaseUrl.length,
     hasKey: !!supabaseAnonKey,
-    keyLength: supabaseAnonKey.length,
-    urlPreview: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING',
-    keyPreview: supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'MISSING',
   });
 }
 
