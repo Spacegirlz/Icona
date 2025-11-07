@@ -35,13 +35,24 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onAuthChange, onCreditsC
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const accessToken = hashParams.get('access_token');
         if (accessToken) {
-          // OAuth callback - get session and handle login
-          const { getSession } = await import('../services/authService');
-          const session = await getSession();
-          if (session?.user) {
-            await handleUserLogin(session.user);
-            // Clean up URL hash
-            window.history.replaceState({}, '', window.location.pathname);
+          // OAuth callback - get session and handle login with timeout
+          try {
+            const { getSession } = await import('../services/authService');
+            const session = await Promise.race([
+              getSession(),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Session check timeout')), 3000)
+              )
+            ]) as any;
+            
+            if (session?.user) {
+              await handleUserLogin(session.user);
+              // Clean up URL hash
+              window.history.replaceState({}, '', window.location.pathname);
+            }
+          } catch (err) {
+            console.warn('OAuth callback handling failed:', err);
+            setLoading(false);
           }
         }
         
@@ -73,9 +84,18 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onAuthChange, onCreditsC
 
   const checkUser = async () => {
     try {
-      const currentUser = await getCurrentUser();
+      const currentUser = await Promise.race([
+        getCurrentUser(),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Auth check timeout')), 3000)
+        )
+      ]) as any;
+      
       if (currentUser) {
-        await handleUserLogin(currentUser);
+        // Don't await - let it run in background
+        handleUserLogin(currentUser).catch((err) => {
+          console.warn('Error handling user login:', err);
+        });
       } else {
         setUser(null);
         onAuthChange?.(null);
@@ -90,17 +110,30 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onAuthChange, onCreditsC
 
   const handleUserLogin = async (authUser: any) => {
     try {
-      // Initialize profile if needed
-      const { initializeUserProfile } = await import('../services/authService');
-      const profile = await initializeUserProfile(authUser.id, authUser.email || '');
-
-      setUser({
-        ...authUser,
-        profile,
-      });
-
+      // Set user immediately - don't wait for profile
+      setUser(authUser);
       onAuthChange?.(authUser);
-      onCreditsChange?.(profile?.credits || 0);
+      
+      // Initialize profile in background with timeout
+      try {
+        const { initializeUserProfile } = await import('../services/authService');
+        const profile = await Promise.race([
+          initializeUserProfile(authUser.id, authUser.email || ''),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Profile initialization timeout')), 5000)
+          )
+        ]) as any;
+
+        setUser({
+          ...authUser,
+          profile,
+        });
+        onCreditsChange?.(profile?.credits || 0);
+      } catch (err) {
+        console.warn('Profile initialization failed or timed out:', err);
+        // User is still logged in, just profile loading failed
+        onCreditsChange?.(0);
+      }
     } catch (error) {
       console.error('Error handling user login:', error);
     }

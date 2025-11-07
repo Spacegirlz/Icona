@@ -130,10 +130,14 @@ const App = () => {
           
           if (currentUser) {
             setUser(currentUser);
-            const profile = await getUserProfile(currentUser.id);
-            if (profile) {
-              setCreditsState(profile.credits || 0);
-            }
+            // Load profile in background - don't block UI
+            getUserProfile(currentUser.id).then((profile) => {
+              if (profile) {
+                setCreditsState(profile.credits || 0);
+              }
+            }).catch((err) => {
+              console.warn('Failed to load user profile:', err);
+            });
           }
         } catch (err) {
           console.warn('Auth check failed or timed out:', err);
