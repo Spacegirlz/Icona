@@ -233,8 +233,6 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onSelectPackage, i
             </div>
           </div>
         </div>
-          </div>
-        </div>
       </div>
     </div>
   );
