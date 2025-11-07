@@ -17,10 +17,8 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onAuthChange, onCreditsC
   useEffect(() => {
     // Set a timeout to prevent infinite loading
     const timeoutId = setTimeout(() => {
-      if (loading) {
-        console.warn('Auth check timed out, setting loading to false');
-        setLoading(false);
-      }
+      console.warn('Auth check timed out, setting loading to false');
+      setLoading(false);
     }, 5000); // 5 second timeout
 
     // Check for existing session
