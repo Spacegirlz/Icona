@@ -1,19 +1,36 @@
 import React, { useState } from 'react';
 import { ImageUploader } from './ImageUploader';
 
-const HeroSection = ({ onCtaClick, user }: { onCtaClick: () => void; user?: any }) => (
-  <div className="text-center max-w-5xl mx-auto pt-16 md:pt-24 pb-12">
-    {/* Value prop badge */}
-    {!user && (
-      <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-full">
-        <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
-          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-        </svg>
-        <span className="text-sm font-medium text-gray-300">
-          Get <span className="text-purple-400 font-bold">1 free transformation</span> when you sign up
-        </span>
-      </div>
-    )}
+const HeroSection = ({ onCtaClick, user }: { onCtaClick: () => void; user?: any }) => {
+  // Detect Stripe test mode
+  const viteEnv = (import.meta as any)?.env;
+  const isTestMode = String(viteEnv?.VITE_STRIPE_PUBLISHABLE_KEY || '').startsWith('pk_test_');
+
+  return (
+    <div className="text-center max-w-5xl mx-auto pt-16 md:pt-24 pb-12">
+      {/* Test Mode Badge - Show at top if in test mode */}
+      {isTestMode && (
+        <div className="inline-flex items-center gap-2 px-4 py-2 mb-4 bg-yellow-500/10 border border-yellow-500/20 rounded-full">
+          <svg className="w-4 h-4 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+          </svg>
+          <span className="text-sm font-medium text-yellow-400">
+            Test Mode - Using Stripe Test Keys
+          </span>
+        </div>
+      )}
+
+      {/* Value prop badge */}
+      {!user && (
+        <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 bg-gradient-to-r from-purple-500/10 to-pink-500/10 border border-purple-500/20 rounded-full">
+          <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+          </svg>
+          <span className="text-sm font-medium text-gray-300">
+            Get <span className="text-purple-400 font-bold">1 free transformation</span> when you sign up
+          </span>
+        </div>
+      )}
     
     <h1 className="text-5xl md:text-7xl lg:text-8xl font-extrabold tracking-tight leading-tight">
       <span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-purple-400 to-teal-400">
