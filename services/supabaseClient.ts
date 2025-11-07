@@ -4,6 +4,18 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
+// Debug logging (only in development or if explicitly enabled)
+if (import.meta.env.DEV || import.meta.env.VITE_DEBUG) {
+  console.log('🔍 Supabase Config Check:', {
+    hasUrl: !!supabaseUrl,
+    urlLength: supabaseUrl.length,
+    hasKey: !!supabaseAnonKey,
+    keyLength: supabaseAnonKey.length,
+    urlPreview: supabaseUrl ? `${supabaseUrl.substring(0, 30)}...` : 'MISSING',
+    keyPreview: supabaseAnonKey ? `${supabaseAnonKey.substring(0, 20)}...` : 'MISSING',
+  });
+}
+
 // Create Supabase client only if credentials are available
 let supabase: SupabaseClient | null = null;
 
@@ -20,8 +32,12 @@ if (supabaseUrl && supabaseAnonKey) {
     console.error('Failed to create Supabase client:', error);
   }
 } else {
-  console.warn('Supabase credentials not configured. Authentication will not work.');
-  console.warn('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your .env file');
+  console.warn('⚠️ Supabase credentials not configured. Authentication will not work.');
+  console.warn('Missing:', {
+    url: !supabaseUrl ? 'VITE_SUPABASE_URL' : null,
+    key: !supabaseAnonKey ? 'VITE_SUPABASE_ANON_KEY' : null,
+  });
+  console.warn('Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in your environment variables.');
 }
 
 // Export a safe client that throws helpful errors if not configured

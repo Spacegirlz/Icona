@@ -3,10 +3,13 @@ import { getSupabaseClient, getCurrentUser, getUserProfile } from './supabaseCli
 // Sign in with Google OAuth
 export const signInWithGoogle = async () => {
   const supabase = getSupabaseClient();
+  // Use current origin (works for both dev and production)
+  const redirectTo = `${window.location.origin}${window.location.pathname}`;
+  
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: redirectTo,
     },
   });
 

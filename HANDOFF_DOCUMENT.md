@@ -1,8 +1,9 @@
 # ICONA - Technical Handoff Document 🚀
 
 **Created:** November 7, 2025  
+**Last Updated:** December 2024  
 **Status:** ✅ Production Ready  
-**Next Focus:** Landing Page Design & UI Improvements
+**Next Focus:** Additional UI/UX Polish & Mobile Optimization
 
 ---
 
@@ -70,10 +71,16 @@ This document summarizes all the technical setup completed for ICONA. Use this a
 5. Welcome email sent automatically
 6. User receives 1 free credit
 
+### Authentication Methods
+- **Google OAuth:** One-click sign in with Google account
+- **Email/Password:** Traditional sign up and sign in
+- **Password Reset:** Forgot password flow with email reset link
+
 ### Key Files
-- `services/supabaseClient.ts` - Supabase client configuration
-- `services/authService.ts` - Authentication functions
-- `components/AuthButton.tsx` - Sign in/out UI component
+- `services/supabaseClient.ts` - Supabase client configuration (handles missing env vars gracefully)
+- `services/authService.ts` - Authentication functions (Google OAuth, Email/Password, Password Reset)
+- `components/AuthButton.tsx` - Sign in/out UI component (opens unified AuthModal)
+- `components/AuthModal.tsx` - Unified authentication modal with backdrop overlay
 
 ---
 
@@ -246,7 +253,10 @@ VITE_API_URL=/api
 ## ✨ Current Features
 
 ### User Features
-- ✅ Sign in with Google
+- ✅ Sign in with Google OAuth
+- ✅ Sign in/Sign up with Email & Password
+- ✅ Password reset functionality
+- ✅ Unified authentication modal with dark backdrop
 - ✅ View credit balance
 - ✅ Purchase credits (4 packages)
 - ✅ Generate AI images (1 credit per generation)
@@ -323,14 +333,16 @@ VITE_API_URL=/api
 - `geminiService.ts` - AI API calls
 
 ### Components (`/components/`)
-- `AuthButton.tsx` - Sign in/out button
+- `AuthButton.tsx` - Sign in/out button (opens AuthModal)
+- `AuthModal.tsx` - Unified authentication modal (Google OAuth + Email/Password)
 - `CreditBalance.tsx` - Credit display & purchase modal
-- `Header.tsx` - Main header with credits
+- `Header.tsx` - Main header with credits (glassmorphism design)
 - `ErrorBoundary.tsx` - Error handling
 - `ImageUploader.tsx` - Image upload
 - `ResultDisplay.tsx` - Results display
 - `PromptBuilder.tsx` - Prompt building UI
-- `LandingPage.tsx` - Landing page
+- `LandingPage.tsx` - Landing page (redesigned hero section)
+- `WelcomeBanner.tsx` - Welcome banner for new users
 
 ### Utils (`/utils/`)
 - `promptSanitizer.ts` - Input sanitization (security)
@@ -367,11 +379,34 @@ VITE_API_URL=/api
 - ✅ Credit deduction
 - ✅ Transaction logging
 
+### Recent UI/UX Improvements (Latest Session)
+- ✅ **Authentication Modal:** Unified modal with dark backdrop overlay
+  - Separate backdrop layer covering entire screen (85% black opacity with blur)
+  - Supports Google OAuth and Email/Password authentication
+  - Sign in, Sign up, and Forgot password modes
+  - Proper z-index layering (backdrop z-40, modal z-50)
+  - Click outside to close functionality
+  
+- ✅ **Landing Page:** Redesigned hero section
+  - Dynamic CTAs based on user authentication status
+  - Value proposition badge ("Get 1 free transformation")
+  - Trust indicators (instant results, secure & private, studio-quality)
+  - Premium gradient styling
+
+- ✅ **Header:** Glassmorphism design
+  - Conditional credit display (only when logged in)
+  - Premium styling with backdrop blur
+
+- ✅ **Auth Service:** Enhanced authentication
+  - Fixed Google OAuth redirect URL (works in dev and prod)
+  - Added email/password sign up, sign in, and password reset
+  - Graceful error handling
+
 ### What's Next (Design Focus)
-- 🎨 Landing page redesign
-- 🎨 UI/UX improvements
-- 🎨 Component styling updates
-- 🎨 User experience enhancements
+- 🎨 Additional landing page sections
+- 🎨 More UI/UX polish
+- 🎨 Mobile optimization refinements
+- 🎨 User onboarding flow improvements
 
 ---
 
@@ -381,6 +416,42 @@ VITE_API_URL=/api
 2. **Usage Logging:** Usage logs are tracked but not displayed to users yet
 3. **Transaction History:** Stored in database but not shown in UI
 4. **Email Templates:** Basic templates - can be customized/branded further
+
+## 🎨 Recent UI/UX Changes (December 2024)
+
+### Authentication Modal Improvements
+**File:** `components/AuthModal.tsx`
+
+**Changes:**
+- Separated backdrop and modal into distinct layers for proper z-index management
+- Backdrop: `fixed inset-0 z-40` with `rgba(0, 0, 0, 0.85)` and `backdrop-filter: blur(8px)`
+- Modal: `fixed inset-0 z-50` with `pointer-events-none` on container, `pointer-events-auto` on modal content
+- Ensures entire screen is darkened when modal opens, not just the top section
+- Click outside backdrop closes modal, click inside modal content does not close
+
+**Technical Details:**
+- Uses React Fragment (`<>...</>`) to render both backdrop and modal
+- Backdrop has `onClick={onClose}` to close modal
+- Modal content has `onClick={(e) => e.stopPropagation()}` to prevent closing when clicking inside
+- Modal positioned with `items-start justify-center pt-24 md:pt-32` for proper vertical placement
+
+### Auth Service Enhancements
+**File:** `services/authService.ts`
+
+**Changes:**
+- Fixed Google OAuth redirect URL to use `window.location.origin + window.location.pathname`
+- Works correctly in both development (port 5173) and production
+- Added `signUpWithEmail()`, `signInWithEmail()`, and `resetPassword()` functions
+- All functions use `getSupabaseClient()` for error handling
+
+### Supabase Client Resilience
+**File:** `services/supabaseClient.ts`
+
+**Changes:**
+- Client initialization now handles missing environment variables gracefully
+- `getSupabaseClient()` function throws clear error if client not configured
+- Helper functions check for null client and log warnings instead of crashing
+- Prevents white screen errors when Supabase env vars are missing
 
 ---
 
