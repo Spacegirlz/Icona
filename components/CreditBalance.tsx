@@ -94,10 +94,23 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onSelectPackage, i
 
   return (
     <div 
-      className="fixed inset-0 z-[100] flex items-start justify-center bg-black/60 backdrop-blur-md p-4 pt-16 md:pt-24 overflow-y-auto"
+      className="fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-16 md:pt-24 overflow-y-auto"
+      style={{ zIndex: 9999 }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[calc(100vh-8rem)] overflow-y-auto my-4 animate-in fade-in zoom-in duration-200 relative z-[101]">
+      {/* Backdrop */}
+      <div 
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+        style={{ zIndex: 9998 }}
+        onClick={onClose}
+      />
+      
+      {/* Modal Content */}
+      <div 
+        className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[calc(100vh-8rem)] overflow-y-auto my-4"
+        style={{ zIndex: 9999 }}
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="sticky top-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-6 py-4 flex justify-between items-center">
           <div>
