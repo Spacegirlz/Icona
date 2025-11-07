@@ -59,12 +59,20 @@ export const getCurrentUser = async () => {
     console.warn('Supabase not configured. Cannot get current user.');
     return null;
   }
-  const { data: { user }, error } = await supabase.auth.getUser();
-  if (error) {
-    console.error('Error getting user:', error);
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+      // Don't log errors for unauthenticated users (this is normal)
+      if (error.message && !error.message.includes('JWT')) {
+        console.error('Error getting user:', error);
+      }
+      return null;
+    }
+    return user;
+  } catch (error) {
+    console.error('Exception getting user:', error);
     return null;
   }
-  return user;
 };
 
 // Helper to get user profile with credits

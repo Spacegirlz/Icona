@@ -15,6 +15,14 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onAuthChange, onCreditsC
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('Auth check timed out, setting loading to false');
+        setLoading(false);
+      }
+    }, 5000); // 5 second timeout
+
     // Check for existing session
     checkUser();
 
@@ -38,10 +46,12 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onAuthChange, onCreditsC
       subscription = data.subscription;
       } catch (error) {
         console.warn('Supabase not configured. Auth state changes will not work.');
+        setLoading(false); // Stop loading if Supabase isn't configured
       }
     })();
 
     return () => {
+      clearTimeout(timeoutId);
       if (subscription) {
         subscription.unsubscribe();
       }
@@ -59,6 +69,7 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onAuthChange, onCreditsC
       }
     } catch (error) {
       console.error('Error checking user:', error);
+      // Even on error, stop loading so user can still interact
     } finally {
       setLoading(false);
     }
