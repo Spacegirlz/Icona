@@ -25,3 +25,6 @@ dist-ssr
 
 # Credentials (keep secret!)
 CREDENTIALS.md
+.env
+.env.local
+.env.*.local
