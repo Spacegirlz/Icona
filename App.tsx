@@ -85,6 +85,24 @@ const App = () => {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        // Check for OAuth callback in URL hash
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        
+        if (accessToken) {
+          // OAuth callback - get session explicitly
+          const { getSession } = await import('./services/authService');
+          const session = await getSession();
+          
+          if (session?.user) {
+            await handleAuthChange(session.user);
+            // Clean up URL hash
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+          }
+        }
+        
+        // Normal auth check
         const currentUser = await getCurrentUser();
         if (currentUser) {
           setUser(currentUser);

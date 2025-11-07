@@ -30,6 +30,21 @@ export const AuthButton: React.FC<AuthButtonProps> = ({ onAuthChange, onCreditsC
       const { getSupabaseClient } = await import('../services/supabaseClient');
       try {
         const supabase = getSupabaseClient();
+        
+        // Check for OAuth callback in URL hash first
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const accessToken = hashParams.get('access_token');
+        if (accessToken) {
+          // OAuth callback - get session and handle login
+          const { getSession } = await import('../services/authService');
+          const session = await getSession();
+          if (session?.user) {
+            await handleUserLogin(session.user);
+            // Clean up URL hash
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+        
         const { data } = supabase.auth.onAuthStateChange(
         async (event, session) => {
           if (event === 'SIGNED_IN' && session?.user) {
