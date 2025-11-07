@@ -10,30 +10,11 @@ import { editImageWithGemini, getRefinementSuggestions, generateDetailedPromptFr
 import { fileToBase64 } from './utils/imageUtils';
 import { buildFinalPrompt, quickHitToOpts, TransformationMode, QUICK_HITS, buildCreativeMetaPrompt } from './prompts';
 import { LandingPage } from './components/LandingPage';
+import { WelcomeBanner } from './components/WelcomeBanner';
 import { sanitizeRefinementPrompt, sanitizeManualEraText, sanitizeAdditionalDetails } from './utils/promptSanitizer';
+import { getCurrentUser, getUserProfile, deductCredits } from './services/supabaseClient';
 
 export type CreationMode = 'choice' | 'build' | 'manual' | 'adventure-choice';
-
-// Simple credit storage (localStorage for now, can upgrade to Supabase later)
-const getCredits = (): number => {
-  if (typeof window === 'undefined') return 0;
-  const stored = localStorage.getItem('icona_credits');
-  return stored ? parseInt(stored, 10) : 1; // Start with 1 free credit
-};
-
-const setCredits = (credits: number): void => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem('icona_credits', credits.toString());
-};
-
-const useCredits = (amount: number): boolean => {
-  const current = getCredits();
-  if (current >= amount) {
-    setCredits(current - amount);
-    return true;
-  }
-  return false;
-};
 
 const App = () => {
   const [originalImageFile, setOriginalImageFile] = useState<File | null>(null);
@@ -48,7 +29,11 @@ const App = () => {
   const [refinementSuggestions, setRefinementSuggestions] = useState<string[]>([]);
   const [showQuickHitsPicker, setShowQuickHitsPicker] = useState(false);
   const [lastUsedPrompt, setLastUsedPrompt] = useState<string | null>(null);
-  const [credits, setCreditsState] = useState<number>(getCredits());
+  const [credits, setCreditsState] = useState<number>(0);
+  const [user, setUser] = useState<any>(null);
+  const [loadingAuth, setLoadingAuth] = useState(true);
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
   
   // State for the prompt builder
   const [transformationMode, setTransformationMode] = useState<TransformationMode>('portrait');
@@ -96,14 +81,34 @@ const App = () => {
     };
   }, [editedImageUrl]);
 
-  // Check for successful payment and add credits
+  // Initialize auth and load credits
   useEffect(() => {
+    const initAuth = async () => {
+      try {
+        const currentUser = await getCurrentUser();
+        if (currentUser) {
+          setUser(currentUser);
+          const profile = await getUserProfile(currentUser.id);
+          if (profile) {
+            setCreditsState(profile.credits || 0);
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        setLoadingAuth(false);
+      }
+    };
+
+    initAuth();
+
+    // Check for successful payment and refresh credits
     const urlParams = new URLSearchParams(window.location.search);
     const success = urlParams.get('success');
     const sessionId = urlParams.get('session_id');
     
     if (success === 'true' && sessionId) {
-      // Verify payment with backend and add credits
+      // Verify payment with backend (credits are added server-side)
       const verifyPayment = async () => {
         try {
           const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
@@ -116,10 +121,14 @@ const App = () => {
           if (response.ok) {
             const data = await response.json();
             if (data.success && data.credits > 0) {
-              // Add credits to localStorage
-              const current = getCredits();
-              setCredits(current + data.credits);
-              setCreditsState(current + data.credits);
+              // Refresh credits from Supabase
+              const currentUser = await getCurrentUser();
+              if (currentUser) {
+                const profile = await getUserProfile(currentUser.id);
+                if (profile) {
+                  setCreditsState(profile.credits || 0);
+                }
+              }
               // Show success message
               alert(`Success! ${data.credits} credits added to your account.`);
             }
@@ -133,14 +142,48 @@ const App = () => {
       // Clean URL
       window.history.replaceState({}, '', window.location.pathname);
     }
-    
-    // Refresh credits from localStorage
-    setCreditsState(getCredits());
   }, []);
 
   // Refresh credits function
-  const refreshCredits = () => {
-    setCreditsState(getCredits());
+  const refreshCredits = async () => {
+    if (user) {
+      const profile = await getUserProfile(user.id);
+      if (profile) {
+        setCreditsState(profile.credits || 0);
+      }
+    }
+  };
+
+  // Handle auth changes
+  const handleAuthChange = async (authUser: any) => {
+    const wasLoggedOut = user && !authUser;
+    const wasLoggedIn = !user && authUser;
+    
+    setUser(authUser);
+    if (authUser) {
+      const profile = await getUserProfile(authUser.id);
+      if (profile) {
+        const newCredits = profile.credits || 0;
+        setCreditsState(newCredits);
+        
+        // Show welcome banner for new users (has 1 credit and profile was just created)
+        if (wasLoggedIn && newCredits === 1 && profile.created_at) {
+          const createdDate = new Date(profile.created_at);
+          const now = new Date();
+          const minutesSinceCreation = (now.getTime() - createdDate.getTime()) / (1000 * 60);
+          
+          // Show banner if profile was created in last 5 minutes (new signup)
+          if (minutesSinceCreation < 5) {
+            setIsNewUser(true);
+            setShowWelcomeBanner(true);
+          }
+        }
+      }
+    } else {
+      setCreditsState(0);
+      setShowWelcomeBanner(false);
+      setIsNewUser(false);
+    }
   };
 
   const handleImageUpload = (file: File) => {
@@ -248,13 +291,20 @@ const App = () => {
       return;
     }
     
-    // Check credits before generating
-    if (!useCredits(1)) {
-      setError('Not enough credits. Please buy more credits to continue.');
-      setCreditsState(getCredits()); // Update UI
+    // Check if user is logged in
+    if (!user) {
+      setError('Please sign in to generate images.');
       return;
     }
-    setCreditsState(getCredits()); // Update UI
+    
+    // Check credits before generating
+    const success = await deductCredits(user.id, 1);
+    if (!success) {
+      setError('Not enough credits. Please buy more credits to continue.');
+      await refreshCredits();
+      return;
+    }
+    await refreshCredits();
     
     setShowQuickHitsPicker(false);
     setIsLoading(true);
@@ -302,15 +352,24 @@ const App = () => {
         setIsLoading(false);
         triggerCooldown();
     }
-  }, [originalImageFile]);
+  }, [originalImageFile, user]);
 
   const handleSubmit = useCallback(async () => {
-    // Check credits before generating
-    if (!useCredits(1)) {
-      setError('Not enough credits. Please buy more credits to continue.');
+    // Check if user is logged in
+    if (!user) {
+      setError('Please sign in to generate images.');
       return;
     }
-    setCreditsState(getCredits()); // Update UI
+    
+    // Check credits before generating
+    const success = await deductCredits(user.id, 1);
+    if (!success) {
+      setError('Not enough credits. Please buy more credits to continue.');
+      await refreshCredits();
+      return;
+    }
+    await refreshCredits();
+    
     if (!originalImageFile) {
       setError('Please upload an image.');
       return;
@@ -367,7 +426,7 @@ const App = () => {
     }
   }, [
     originalImageFile, creationMode, manualEraText, moodId, vitalityLevelId, 
-    archetypeId, eraId, settingId, styleId, additionalDetails, transformationMode, professionalPresetId
+    archetypeId, eraId, settingId, styleId, additionalDetails, transformationMode, professionalPresetId, user
   ]);
 
   const handleRefine = useCallback(async () => {
@@ -376,13 +435,20 @@ const App = () => {
       return;
     }
     
-    // Check credits before refining
-    if (!useCredits(1)) {
-      setError('Not enough credits. Please buy more credits to continue.');
-      setCreditsState(getCredits()); // Update UI
+    // Check if user is logged in
+    if (!user) {
+      setError('Please sign in to refine images.');
       return;
     }
-    setCreditsState(getCredits()); // Update UI
+    
+    // Check credits before refining
+    const success = await deductCredits(user.id, 1);
+    if (!success) {
+      setError('Not enough credits. Please buy more credits to continue.');
+      await refreshCredits();
+      return;
+    }
+    await refreshCredits();
     
     setIsLoading(true);
     setError(null);
@@ -413,7 +479,7 @@ const App = () => {
         setIsLoading(false);
         triggerCooldown();
     }
-  }, [originalImageFile, lastUsedPrompt, refinementPrompt]);
+  }, [originalImageFile, lastUsedPrompt, refinementPrompt, user]);
 
   const handleGenerateVariation = useCallback(async () => {
     if (!originalImageFile || !lastUsedPrompt) {
@@ -451,7 +517,17 @@ const App = () => {
         showReset={!!originalImageUrl}
         credits={credits}
         onCreditsUpdate={refreshCredits}
+        user={user}
+        onAuthChange={handleAuthChange}
       />
+
+      {/* Welcome Banner for New Users */}
+      {showWelcomeBanner && user && (
+        <WelcomeBanner 
+          credits={credits} 
+          onDismiss={() => setShowWelcomeBanner(false)}
+        />
+      )}
 
       <main className="container mx-auto p-6 md:p-12">
         {!originalImageUrl ? (
@@ -459,7 +535,8 @@ const App = () => {
             onImageUpload={handleImageUpload} 
             onPresetExampleSelect={(presetId) => {
               setPendingPresetId(presetId);
-            }} 
+            }}
+            user={user}
           />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">

@@ -69,8 +69,56 @@ export default async function handler(
       });
     }
 
-    // Return credits to add (client will add to localStorage)
-    // In production, you'd update a database here
+    // Get user email from session
+    const customerEmail = session.customer_email || session.customer_details?.email;
+
+    // If user email is provided, add credits to their Supabase account
+    if (customerEmail) {
+      try {
+        const { createClient } = require('@supabase/supabase-js');
+        const supabaseUrl = process.env.SUPABASE_URL || '';
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+          // Find user by email
+          const { data: profile, error: findError } = await supabase
+            .from('user_profiles')
+            .select('id, credits')
+            .eq('email', customerEmail)
+            .single();
+
+          if (profile && !findError) {
+            // Update credits
+            const newCredits = (profile.credits || 0) + credits;
+            await supabase
+              .from('user_profiles')
+              .update({ 
+                credits: newCredits,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', profile.id);
+
+            // Log transaction
+            await supabase
+              .from('transactions')
+              .insert({
+                user_id: profile.id,
+                stripe_payment_id: session.payment_intent as string,
+                credits,
+                amount_paid: session.amount_total || 0,
+                status: 'completed',
+              });
+          }
+        }
+      } catch (error: any) {
+        console.error('Error updating credits in Supabase:', error);
+        // Continue anyway - credits will be added via webhook
+      }
+    }
+
+    // Return credits (client can also add to localStorage as fallback)
     response.setHeader('Access-Control-Allow-Origin', '*');
     return response.status(200).json({
       success: true,

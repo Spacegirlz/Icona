@@ -75,18 +75,96 @@ export default async function handler(
 
         const customerEmail = session.customer_email || session.customer_details?.email;
 
-        // TODO: Add credits to user account in Supabase/database
-        // For now, just log the event
-        console.log('[WEBHOOK] Credits to add:', {
-          email: customerEmail,
-          credits,
-          packageId: session.metadata?.packageId,
-        });
+        // Add credits to user account in Supabase
+        if (customerEmail && credits > 0) {
+          try {
+            const { createClient } = require('@supabase/supabase-js');
+            const supabaseUrl = process.env.SUPABASE_URL || '';
+            const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
-        // In production, you would:
-        // 1. Find or create user by email
-        // 2. Add credits to their account
-        // 3. Log the transaction
+            if (supabaseUrl && supabaseServiceKey) {
+              const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+              // Find user by email
+              const { data: profile, error: findError } = await supabase
+                .from('user_profiles')
+                .select('id, credits')
+                .eq('email', customerEmail)
+                .single();
+
+              if (profile && !findError) {
+                // Update credits
+                const newCredits = (profile.credits || 0) + credits;
+                await supabase
+                  .from('user_profiles')
+                  .update({ 
+                    credits: newCredits,
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq('id', profile.id);
+
+                // Log transaction
+                await supabase
+                  .from('transactions')
+                  .insert({
+                    user_id: profile.id,
+                    stripe_payment_id: session.payment_intent as string,
+                    credits,
+                    amount_paid: session.amount_total || 0,
+                    status: 'completed',
+                  });
+
+                console.log('[WEBHOOK] Credits added successfully:', {
+                  userId: profile.id,
+                  email: customerEmail,
+                  credits,
+                  newTotal: newCredits,
+                });
+
+                // Send payment confirmation email
+                try {
+                  const amountPaid = session.amount_total || 0;
+                  const amountFormatted = `$${(amountPaid / 100).toFixed(2)}`;
+                  
+                  // Call email API endpoint
+                  const emailResponse = await fetch(`${process.env.VERCEL_URL || 'https://icona-eta.vercel.app'}/api/send-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      to: customerEmail,
+                      subject: 'Payment Confirmed - Credits Added! ✅',
+                      html: `
+                        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                          <h1 style="color: #9333ea;">Payment Confirmed!</h1>
+                          <p>Hi there!</p>
+                          <p>Your payment of <strong>${amountFormatted}</strong> was successful.</p>
+                          <p><strong>${credits} credits</strong> have been added to your account.</p>
+                          <a href="https://icona-eta.vercel.app" style="display: inline-block; padding: 12px 24px; background: #9333ea; color: white; text-decoration: none; border-radius: 6px; margin-top: 20px;">
+                            Use Your Credits
+                          </a>
+                        </div>
+                      `,
+                      text: `Payment confirmed! ${credits} credits added to your account. Visit https://icona-eta.vercel.app to use them.`,
+                    }),
+                  });
+                  
+                  if (emailResponse.ok) {
+                    console.log('[WEBHOOK] Payment confirmation email sent');
+                  } else {
+                    console.error('[WEBHOOK] Failed to send payment confirmation email:', await emailResponse.text());
+                  }
+                } catch (emailError) {
+                  console.error('[WEBHOOK] Error sending payment confirmation email:', emailError);
+                  // Don't fail the webhook if email fails
+                }
+              } else {
+                console.warn('[WEBHOOK] User not found for email:', customerEmail);
+              }
+            }
+          } catch (error: any) {
+            console.error('[WEBHOOK] Error adding credits to user:', error);
+          }
+        }
 
         break;
       }
