@@ -94,7 +94,7 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onSelectPackage, i
 
   return (
     <div 
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
+      className="fixed inset-0 z-[9999] flex items-start justify-center p-4 pt-20 md:pt-24"
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       {/* Backdrop */}
@@ -103,9 +103,9 @@ const PricingModal: React.FC<PricingModalProps> = ({ onClose, onSelectPackage, i
         onClick={onClose}
       />
       
-      {/* Modal Content - Traditional centered popup */}
+      {/* Modal Content - Positioned lower on screen */}
       <div 
-        className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto"
+        className="relative bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl max-w-5xl w-full max-h-[calc(100vh-6rem)] overflow-y-auto mt-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
